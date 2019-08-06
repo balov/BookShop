@@ -11,13 +11,19 @@ namespace BookShop.BookStore
     {
         public StoreDb StoreDb { get; set; }
 
-        private Dictionary<string, int> Order = new Dictionary<string, int>();
+        private List<NameQuantity> Order = new List<NameQuantity>();
 
         public double Buy(params string[] basketByNames)
         {
-            double price = 0;
-
             this.FillOrders(basketByNames);
+
+            this.CheckAvailabilityOfBooks();
+
+            var price = this.CalculateBookPrice();
+
+            this.UpdateStoreAfterOrder();
+
+            this.Order.Clear();
 
             return price;
         }
@@ -36,13 +42,19 @@ namespace BookShop.BookStore
         {
             foreach (var bookName in basketByNames)
             {
-                if (this.Order.ContainsKey(bookName))
+                var book = new NameQuantity
                 {
-                    this.Order[bookName]++;
+                    Name = bookName,
+                    Quantity = 1
+                };
+
+                if (this.Order.Any(b => b.Name == bookName))
+                {
+                    this.Order.FirstOrDefault(b => b.Name == bookName).Quantity++;
                 }
                 else
                 {
-                    this.Order.Add(bookName, 1);
+                    this.Order.Add(book);
                 }
             }
         }
@@ -51,17 +63,11 @@ namespace BookShop.BookStore
         {
             var nonValidBooks = new List<NameQuantity>();
 
-            foreach (var kvp in this.Order)
+            foreach (var book in this.Order)
             {
-                if (this.StoreDb.Catalog.FirstOrDefault(b => b.Name == kvp.Key).Quantity < kvp.Value)
+                if (this.StoreDb.Catalog.FirstOrDefault(b => b.Name == book.Name).Quantity < book.Quantity)
                 {
-                    var nonValidBook = new NameQuantity
-                    {
-                        Name = kvp.Key,
-                        Quantity = kvp.Value
-                    };
-
-                    nonValidBooks.Add(nonValidBook);
+                    nonValidBooks.Add(book);
                 }
             }
 
@@ -69,6 +75,47 @@ namespace BookShop.BookStore
             {
                 throw new NotEnoughInventoryException(nonValidBooks);
             }
+        }
+
+        private void UpdateStoreAfterOrder()
+        {
+            foreach (var book in this.Order)
+            {
+                this.StoreDb.Catalog.FirstOrDefault(b => b.Name == book.Name).Quantity -= book.Quantity;
+            }
+        }
+
+        private double CalculateBookPrice()
+        {
+            double totalBookPrice = 0;
+
+            var orderedBooks = this.StoreDb.Catalog.Where(b => this.Order.Select(o => o.Name).Contains(b.Name));
+
+            foreach (var book in orderedBooks)
+            {
+                var quantity = this.Order.FirstOrDefault(b => b.Name == book.Name).Quantity;
+
+                if (orderedBooks.Where(b => b.Category == book.Category).Count() > 1)
+                {
+                    var discount = this.StoreDb.Category.FirstOrDefault(c => c.Name == book.Category).Discount;
+
+                    if (quantity > 1)
+                    {
+                        totalBookPrice += (book.Price * (1 - discount) + book.Price * (quantity - 1));
+                    }
+                    else
+                    {
+                        totalBookPrice += (book.Price * (1 - discount));
+                    }
+                }
+                else
+                {
+                    totalBookPrice += (book.Price * quantity);
+                }
+            }
+
+
+            return totalBookPrice;
         }
     }
 }
