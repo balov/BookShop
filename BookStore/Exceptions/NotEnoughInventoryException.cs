@@ -8,7 +8,7 @@ namespace BookShop.BookStore.Exceptions
     public class NotEnoughInventoryException : Exception
     {
         public NotEnoughInventoryException(IEnumerable<INameQuantity> missing)
-            : base(string.Join(" ", missing.Select(nq => nq.Name)))
+            : base($"Not Enough Inventory For Books: {string.Join(" ", missing.Select(nq => nq.Name))}")
         {
             this.Missing = missing;
         }

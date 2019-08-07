@@ -9,7 +9,7 @@ namespace BookShop.BookStore
 {
     public class Store : IStore
     {
-        public StoreDb StoreDb { get; set; }
+        private StoreDb StoreDb { get; set; }
 
         private List<NameQuantity> Order = new List<NameQuantity>();
 
@@ -36,6 +36,11 @@ namespace BookShop.BookStore
         public int Quantity(string name)
         {
             return this.StoreDb.Catalog.FirstOrDefault(b => b.Name == name).Quantity;
+        }
+
+        public IEnumerable<string> GetBookNames()
+        {
+            return this.StoreDb.Catalog.Select(b => b.Name);
         }
 
         private void FillOrders(params string[] basketByNames)
@@ -73,6 +78,8 @@ namespace BookShop.BookStore
 
             if (nonValidBooks.Any())
             {
+                this.Order.Clear();
+
                 throw new NotEnoughInventoryException(nonValidBooks);
             }
         }
@@ -113,7 +120,6 @@ namespace BookShop.BookStore
                     totalBookPrice += (book.Price * quantity);
                 }
             }
-
 
             return totalBookPrice;
         }
